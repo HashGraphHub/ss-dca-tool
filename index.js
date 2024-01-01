@@ -15,6 +15,8 @@ const { checkAndFormatData, hexStringToUint8Array } = require("./lib/utils");
 
 functions.cloudEvent("buyToken", async (cloudEvent) => {
   console.log("Starting buy token function");
+  console.log("Client account id: ", process.env.ACCOUNT_ID);
+  console.log("Network: ", config.network);
   // handle data errors in the cloud event and deconstruct
   const { recipientAddress, inputToken, inputAmount, outputToken, feeHexStr } =
     checkAndFormatData(cloudEvent);
@@ -79,9 +81,12 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
 
   //encode each function individually
   const swapEncoded = abiInterfaces.encodeFunctionData("exactInput", [params]);
-  const refundHBAREncoded = abiInterfaces.encodeFunctionData("refundETH");
+  const refundHbarOrUnwrapHbar =
+    outputToken.toString() === config.whbarId
+      ? abiInterfaces.encodeFunctionData("unwrapWHBAR", [0, recipientAddress])
+      : abiInterfaces.encodeFunctionData("refundETH");
   //multi-call parameter: bytes[]
-  const multiCallParam = [swapEncoded, refundHBAREncoded];
+  const multiCallParam = [swapEncoded, refundHbarOrUnwrapHbar];
 
   //get encoded data for the multicall involving both functions
   const buyTokenFcnData = abiInterfaces.encodeFunctionData("multicall", [
@@ -94,12 +99,11 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
 
   console.log("Executing swap function...");
   const buyTokenTransaction = new ContractExecuteTransaction()
-    .setPayableAmount(Hbar.from(inputAmount, HbarUnit.Tinybar))
     .setContractId(config.swapRouter)
     .setGas(1_000_000) // REDUCE GAS
     .setFunctionParameters(buyTokenFcnDataAsUint8Array);
 
-  if (inputToken.toString() !== config.whbarId)
+  if (inputToken.toString() === config.whbarId)
     buyTokenTransaction.setPayableAmount(
       Hbar.from(inputAmount, HbarUnit.Tinybar)
     );
