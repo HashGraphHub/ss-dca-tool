@@ -73,7 +73,7 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
   console.log("Creating swap data...");
   const params = {
     path: "0x" + pathHexData,
-    recipient: recipientAddress,
+    recipient: ContractId.fromString(config.swapRouter).toSolidityAddress(),
     deadline: Math.floor((new Date().getTime() + 10_000) / 1000), // REDUCE TIME
     amountIn: inputAmount,
     amountOutMinimum: Math.floor(finalOutputAmount.toString() * 0.99), // REDUCE SLIPPAGE // HANDLE CORRECTLY - THIS IS BIG INT
