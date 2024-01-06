@@ -28,7 +28,11 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
   // instatiate abi interface
   const abiInterfaces = new ethers.Interface(abi);
 
-  // 1. APPROVE TOKEN SPEND
+  // _       _   ___ ___ ___  _____   _____   _____ ___  _  _____ _  _   ___ ___ ___ _  _ ___
+  // / |     /_\ | _ \ _ \ _ \/ _ \ \ / / __| |_   _/ _ \| |/ / __| \| | / __| _ \ __| \| |   \
+  // | |_   / _ \|  _/  _/   / (_) \ V /| _|    | || (_) | ' <| _|| .` | \__ \  _/ _|| .` | |) |
+  // |_(_) /_/ \_\_| |_| |_|_\\___/ \_/ |___|   |_| \___/|_|\_\___|_|\_| |___/_| |___|_|\_|___/
+
   // if token is non-hbar it needs approving
   if (inputToken.toString() !== config.whbarId) {
     console.log("Non-HBAR token, approving spend...");
@@ -42,7 +46,11 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
     await approveTx.execute(client);
   }
 
-  // 2. GET QUOTE FOR TOKEN SWAP
+  // ___      ___ ___ _____    ___  _   _  ___ _____ ___   ___ ___  ___   _____ ___  _  _____ _  _   _____      ___   ___
+  // |_  )    / __| __|_   _|  / _ \| | | |/ _ \_   _| __| | __/ _ \| _ \ |_   _/ _ \| |/ / __| \| | / __\ \    / /_\ | _ \
+  //  / / _  | (_ | _|  | |   | (_) | |_| | (_) || | | _|  | _| (_) |   /   | || (_) | ' <| _|| .` | \__ \\ \/\/ / _ \|  _/
+  // /___(_)  \___|___| |_|    \__\_\\___/ \___/ |_| |___| |_| \___/|_|_\   |_| \___/|_|\_\___|_|\_| |___/ \_/\_/_/ \_\_|
+
   const provider = new ethers.JsonRpcProvider(config.jsonRpcUrl, "", {
     batchMaxCount: 1, //workaround for V6
   });
@@ -69,14 +77,21 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
 
   console.log("Final output amount: ", finalOutputAmount.toString());
 
-  // 3. Swap tokens
+  // ____    _____      ___   ___   _____ ___  _  _____ _  _ ___
+  // |__ /   / __\ \    / /_\ | _ \ |_   _/ _ \| |/ / __| \| / __|
+  //  |_ \_  \__ \\ \/\/ / _ \|  _/   | || (_) | ' <| _|| .` \__ \
+  // |___(_) |___/ \_/\_/_/ \_\_|     |_| \___/|_|\_\___|_|\_|___/
+
   console.log("Creating swap data...");
   const params = {
     path: "0x" + pathHexData,
-    recipient: ContractId.fromString(config.swapRouter).toSolidityAddress(),
-    deadline: Math.floor((new Date().getTime() + 10_000) / 1000), // REDUCE TIME
+    recipient:
+      outputToken.toString() === config.whbarId // if output token is whbar, send to router to unwrap
+        ? ContractId.fromString(config.swapRouter).toSolidityAddress()
+        : recipientAddress,
+    deadline: Math.floor((new Date().getTime() + 10_000) / 1000),
     amountIn: inputAmount,
-    amountOutMinimum: Math.floor(finalOutputAmount.toString() * 0.99), // REDUCE SLIPPAGE // HANDLE CORRECTLY - THIS IS BIG INT
+    amountOutMinimum: Math.floor(finalOutputAmount.toString() * 0.99),
   };
 
   //encode each function individually
