@@ -7,6 +7,7 @@ const {
   HbarUnit,
   Hbar,
   AccountAllowanceApproveTransaction,
+  TransferTransaction,
 } = require("@hashgraph/sdk");
 const ethers = require("ethers");
 const config = require("./lib/config");
@@ -39,13 +40,44 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
   // | |_   / _ \|  _/  _/   / (_) \ V /| _|    | || (_) | ' <| _|| .` | \__ \  _/ _|| .` | |) |
   // |_(_) /_/ \_\_| |_| |_|_\\___/ \_/ |___|   |_| \___/|_|\_\___|_|\_| |___/_| |___|_|\_|___/
 
+  // if recepientAccount is not the same as the operator account, we need to pay operator
+  // operator should have spend allowance for the input token
+  if (recipientAccount !== process.env.ACCOUNT_ID) {
+    console.log(
+      "Recipient account is not operator account, transferring to client..."
+    );
+    let transferTx = new TransferTransaction();
+    if (inputToken.toString() === config.whbarId) {
+      // if input token is hbar
+      transferTx
+        .addHbarTransfer(
+          client.operatorAccountId,
+          new Hbar(inputAmount, HbarUnit.Tinybar)
+        )
+        .addHbarTransfer(
+          recipientAccount,
+          new Hbar(-inputAmount, HbarUnit.Tinybar)
+        );
+    } else {
+      // if input token is non-hbar
+      transferTx
+        .addApprovedTokenTransfer(
+          inputToken,
+          client.operatorAccountId,
+          inputAmount
+        )
+        .addApprovedTokenTransfer(inputToken, recipientAccount, -inputAmount);
+    }
+    await transferTx.execute(client);
+  }
+
   // if token is non-hbar it needs approving
   if (inputToken.toString() !== config.whbarId) {
     console.log("Non-HBAR token, approving spend...");
     const approveTx =
       new AccountAllowanceApproveTransaction().approveTokenAllowance(
         inputToken,
-        recipientAccount,
+        client.operatorAccountId,
         config.swapRouter,
         inputAmount
       );
