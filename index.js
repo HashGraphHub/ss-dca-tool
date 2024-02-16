@@ -18,8 +18,14 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
   console.log("Client account id: ", process.env.ACCOUNT_ID);
   console.log("Network: ", config.network);
   // handle data errors in the cloud event and deconstruct
-  const { recipientAddress, inputToken, inputAmount, outputToken, feeHexStr } =
-    checkAndFormatData(cloudEvent);
+  const {
+    recipientAccount,
+    recipientAddress,
+    inputToken,
+    inputAmount,
+    outputToken,
+    feeHexStr,
+  } = checkAndFormatData(cloudEvent);
   // create client
   const client =
     config.network === "mainnet" ? Client.forMainnet() : Client.forTestnet();
@@ -39,7 +45,7 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
     const approveTx =
       new AccountAllowanceApproveTransaction().approveTokenAllowance(
         inputToken,
-        process.env.ACCOUNT_ID,
+        recipientAccount,
         config.swapRouter,
         inputAmount
       );
