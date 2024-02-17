@@ -81,7 +81,12 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
         config.swapRouter,
         inputAmount
       );
-    await approveTx.execute(client);
+    try {
+      await approveTx.execute(client);
+    } catch (err) {
+      console.error("Error approving spend: ", err);
+      return { ok: false };
+    }
   }
 
   // ___      ___ ___ _____    ___  _   _  ___ _____ ___   ___ ___  ___   _____ ___  _  _____ _  _   _____      ___   ___
