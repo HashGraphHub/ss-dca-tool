@@ -12,21 +12,21 @@ const {
 const ethers = require("ethers");
 const config = require("./lib/config");
 const { abi } = require("./lib/constants");
-const { checkAndFormatData, hexStringToUint8Array } = require("./lib/utils");
+const {
+  checkAndFormatData,
+  hexStringToUint8Array,
+  createPathHexData,
+} = require("./lib/utils");
 
 functions.cloudEvent("buyToken", async (cloudEvent) => {
   console.log("Starting buy token function");
   console.log("Client account id: ", process.env.ACCOUNT_ID);
   console.log("Network: ", config.network);
   // handle data errors in the cloud event and deconstruct
-  const {
-    recipientAccount,
-    recipientAddress,
-    inputToken,
-    inputAmount,
-    outputToken,
-    feeHexStr,
-  } = checkAndFormatData(cloudEvent);
+  const { recipientAccount, recipientAddress, inputAmount, path } =
+    checkAndFormatData(cloudEvent);
+  const inputToken = path.tokens[0];
+  const outputToken = path.tokens[path.tokens.length - 1];
   // create client
   const client =
     config.network === "mainnet" ? Client.forMainnet() : Client.forTestnet();
@@ -47,7 +47,7 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
       "Recipient account is not operator account, transferring to client..."
     );
     let transferTx = new TransferTransaction();
-    if (inputToken.toString() === config.whbarId) {
+    if (inputToken === config.whbarId) {
       // if input token is hbar
       transferTx
         .addHbarTransfer(
@@ -72,7 +72,7 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
   }
 
   // if token is non-hbar it needs approving
-  if (inputToken.toString() !== config.whbarId) {
+  if (inputToken !== config.whbarId) {
     console.log("Non-HBAR token, approving spend...");
     const approveTx =
       new AccountAllowanceApproveTransaction().approveTokenAllowance(
@@ -100,10 +100,8 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
 
   // create path data
   console.log("Creating path data...");
-  const pathHexData =
-    inputToken.toSolidityAddress() +
-    feeHexStr.slice(2) +
-    outputToken.toSolidityAddress();
+  // create path hex data with any token route
+  const pathHexData = createPathHexData(path);
   const encodedPathData = hexStringToUint8Array(pathHexData);
   const quoteExactInputFcnData = abiInterfaces.encodeFunctionData(
     "quoteExactInput",
@@ -129,7 +127,7 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
   const params = {
     path: "0x" + pathHexData,
     recipient:
-      outputToken.toString() === config.whbarId // if output token is whbar, send to router to unwrap
+      outputToken === config.whbarId // if output token is whbar, send to router to unwrap
         ? ContractId.fromString(config.swapRouter).toSolidityAddress()
         : recipientAddress,
     deadline: Math.floor((new Date().getTime() + 10_000) / 1000),
@@ -140,7 +138,7 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
   //encode each function individually
   const swapEncoded = abiInterfaces.encodeFunctionData("exactInput", [params]);
   const refundHbarOrUnwrapHbar =
-    outputToken.toString() === config.whbarId
+    outputToken === config.whbarId
       ? abiInterfaces.encodeFunctionData("unwrapWHBAR", [0, recipientAddress])
       : abiInterfaces.encodeFunctionData("refundETH");
   //multi-call parameter: bytes[]
@@ -161,7 +159,7 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
     .setGas(1_000_000) // REDUCE GAS
     .setFunctionParameters(buyTokenFcnDataAsUint8Array);
 
-  if (inputToken.toString() === config.whbarId)
+  if (inputToken === config.whbarId)
     buyTokenTransaction.setPayableAmount(
       Hbar.from(inputAmount, HbarUnit.Tinybar)
     );
