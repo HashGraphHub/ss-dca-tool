@@ -69,7 +69,9 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
         .addApprovedTokenTransfer(inputToken, recipientAccount, -inputAmount);
     }
     try {
-      await transferTx.execute(client);
+      const submittedTx = await transferTx.execute(client);
+      const rx = await submittedTx.getReceipt(client);
+      console.log("Transfer receipt: ", rx.status.toString());
     } catch (err) {
       console.error("Error transferring to client: ", err);
       return { ok: false };
@@ -87,7 +89,9 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
         inputAmount
       );
     try {
-      await approveTx.execute(client);
+      const submittedTx = await approveTx.execute(client);
+      const rx = await submittedTx.getReceipt(client);
+      console.log("Approve receipt: ", rx.status.toString());
     } catch (err) {
       console.error("Error approving spend: ", err);
       return { ok: false };
