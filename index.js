@@ -68,7 +68,12 @@ functions.cloudEvent("buyToken", async (cloudEvent) => {
         )
         .addApprovedTokenTransfer(inputToken, recipientAccount, -inputAmount);
     }
-    await transferTx.execute(client);
+    try {
+      await transferTx.execute(client);
+    } catch (err) {
+      console.error("Error transferring to client: ", err);
+      return { ok: false };
+    }
   }
 
   // if token is non-hbar it needs approving
